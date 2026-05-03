@@ -22,7 +22,7 @@ const normalizeDate = (val) => {
   return v || null
 }
 
-export default function PersonForm({ initial = {}, onSubmit, loading }) {
+export default function PersonForm({ initial = {}, onSubmit, loading, suggestions = {} }) {
   const initFormatted = {
     ...EMPTY,
     ...initial,
@@ -51,7 +51,10 @@ export default function PersonForm({ initial = {}, onSubmit, loading }) {
         </div>
         <div className="form-group">
           <label>Nom de famille *</label>
-          <input value={form.last_name} onChange={set('last_name')} required />
+          <input list="dl-lastnames" value={form.last_name} onChange={set('last_name')} required />
+          <datalist id="dl-lastnames">
+            {(suggestions.lastNames || []).map(n => <option key={n} value={n} />)}
+          </datalist>
         </div>
       </div>
 
@@ -67,7 +70,10 @@ export default function PersonForm({ initial = {}, onSubmit, loading }) {
         </div>
         <div className="form-group">
           <label>Lieu de naissance</label>
-          <input value={form.birth_place} onChange={set('birth_place')} placeholder="ex: Ghomrassen, Tataouine" />
+          <input list="dl-birthplaces" value={form.birth_place} onChange={set('birth_place')} placeholder="ex: Ghomrassen, Tataouine" />
+          <datalist id="dl-birthplaces">
+            {(suggestions.birthPlaces || []).map(p => <option key={p} value={p} />)}
+          </datalist>
         </div>
       </div>
 

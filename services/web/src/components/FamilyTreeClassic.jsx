@@ -254,15 +254,83 @@ export default function FamilyTreeClassic({ data }) {
     const svg = d3.select(el).attr('width', svgW).attr('height', svgH)
     const defs = svg.append('defs')
 
-    // ── Dot grid background ───────────────────────────────────────────────────
-    defs.append('pattern').attr('id', 'dot-bg').attr('width', 32).attr('height', 32)
-      .attr('patternUnits', 'userSpaceOnUse')
-      .append('circle').attr('cx', 16).attr('cy', 16).attr('r', 1.1)
-      .attr('fill', 'rgba(139,145,167,0.13)')
+    // ── Animated particle background ──────────────────────────────────────────
     svg.append('rect').attr('width', '100%').attr('height', '100%')
       .attr('fill', 'var(--bg)').attr('pointer-events', 'none')
+    // Static micro-dot grid (base layer)
+    defs.append('pattern').attr('id', 'dot-bg').attr('width', 32).attr('height', 32)
+      .attr('patternUnits', 'userSpaceOnUse')
+      .append('circle').attr('cx', 16).attr('cy', 16).attr('r', 0.9)
+      .attr('fill', 'rgba(139,145,167,0.08)')
     svg.append('rect').attr('width', '100%').attr('height', '100%')
       .attr('fill', 'url(#dot-bg)').attr('pointer-events', 'none')
+    // Glow filter for bright sparkle particles
+    const glowF = defs.append('filter').attr('id', 'sparkle-glow')
+      .attr('x', '-60%').attr('y', '-60%').attr('width', '220%').attr('height', '220%')
+    glowF.append('feGaussianBlur').attr('stdDeviation', '2.5').attr('result', 'blur')
+    const glowMerge = glowF.append('feMerge')
+    glowMerge.append('feMergeNode').attr('in', 'blur')
+    glowMerge.append('feMergeNode').attr('in', 'SourceGraphic')
+    // Animated particles (viewport-fixed, outside zoom group)
+    const bgLayer = svg.append('g').attr('pointer-events', 'none')
+    const rnd = () => Math.random()
+    for (let i = 0; i < 60; i++) {
+      const px = rnd() * svgW, py = rnd() * svgH
+      const delay = (rnd() * 8).toFixed(2)
+      const isStar = rnd() < 0.14  // ~14% are shooting stars
+
+      if (isStar) {
+        // Shooting star: appears, streaks diagonally, fades out, long pause
+        const angle = Math.PI * (0.25 + rnd() * 0.7)  // mostly downward diagonal
+        const dist  = 55 + rnd() * 90
+        const nx = (px + Math.cos(angle) * dist).toFixed(1)
+        const ny = (py + Math.sin(angle) * dist).toFixed(1)
+        const period   = (9  + rnd() * 12).toFixed(2)
+        const shootDur = (0.35 + rnd() * 0.5).toFixed(3)
+        const s0 = (rnd() * 0.75).toFixed(3)
+        const s1 = (+s0 + 0.003).toFixed(3)
+        const s2 = Math.min(+s1 + +shootDur / +period, 0.98).toFixed(3)
+        const s3 = Math.min(+s2 + 0.005, 0.99).toFixed(3)
+        const kt  = `0;${s0};${s1};${s2};${s3};1`
+        const c = bgLayer.append('circle')
+          .attr('cx', px).attr('cy', py).attr('r', 0.9 + rnd() * 1.0)
+          .attr('fill', rnd() > 0.4 ? '#ffffff' : '#a5b4fc')
+          .attr('opacity', 0).attr('filter', 'url(#sparkle-glow)')
+        c.append('animate').attr('attributeName', 'opacity')
+          .attr('values', `0;0;0.95;0;0;0`).attr('keyTimes', kt)
+          .attr('dur', `${period}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cx')
+          .attr('values', `${px};${px};${px};${nx};${nx};${px}`).attr('keyTimes', kt)
+          .attr('dur', `${period}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cy')
+          .attr('values', `${py};${py};${py};${ny};${ny};${py}`).attr('keyTimes', kt)
+          .attr('dur', `${period}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+      } else {
+        // Regular sparkle: slow oscillation + random opacity pulse
+        const r     = 0.6 + rnd() * 1.5
+        const bright = rnd() > 0.6
+        const oLow   = bright ? 0.15 : 0.03
+        const oHigh  = bright ? 0.92 : 0.30
+        const oDur   = (2.0 + rnd() * 4.5).toFixed(2)
+        const mDur   = (10  + rnd() * 12).toFixed(2)
+        const dx = ((rnd() - 0.5) * 26).toFixed(1)
+        const dy = ((rnd() - 0.5) * 26).toFixed(1)
+        const fill   = bright ? (rnd() > 0.5 ? '#818cf8' : '#67e8f9') : 'rgba(139,145,167,0.85)'
+        const c = bgLayer.append('circle')
+          .attr('cx', px).attr('cy', py).attr('r', r)
+          .attr('fill', fill).attr('opacity', oLow)
+        if (bright) c.attr('filter', 'url(#sparkle-glow)')
+        c.append('animate').attr('attributeName', 'opacity')
+          .attr('values', `${oLow};${oHigh};${oLow}`)
+          .attr('dur', `${oDur}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cx')
+          .attr('values', `${px};${(+px + +dx).toFixed(1)};${px}`)
+          .attr('dur', `${mDur}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cy')
+          .attr('values', `${py};${(+py + +dy).toFixed(1)};${py}`)
+          .attr('dur', `${mDur}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+      }
+    }
 
     // ── Build hierarchy & layout ──────────────────────────────────────────────
     const hierarchyData = buildHierarchy(nodes, parent_child, marriages)
@@ -289,37 +357,54 @@ export default function FamilyTreeClassic({ data }) {
     const nodeMap = new Map(nodes.map(n => [String(n.id), n]))
 
     // ── Extra spouse nodes ────────────────────────────────────────────────────
-    // Spouses not covered by a couple-node are placed adjacent to their partner.
-    // skipInTree prevents rendering them twice at their original D3 position.
     const extra      = new Map()  // personId → { x, y, data }
-    const skipInTree = new Set()  // personIds already placed via extra
+    const skipInTree = new Set()
+
+    // Find the nearest x that doesn't overlap any D3 node or already-placed extra node
+    const clearX = (startX, y, dir) => {
+      let x = startX, moved = true, iters = 0
+      while (moved && iters++ < 20) {
+        moved = false
+        for (const [, d] of d3Pos) {
+          if (Math.abs(d.y - y) > H * 0.4) continue
+          const hw = (d.data.__couple ? W + CI / 2 : W / 2) + W / 2 + HG / 2
+          if (Math.abs(d.x - x) < hw) {
+            x = dir > 0
+              ? d.x + (d.data.__couple ? W + CI / 2 : W / 2) + W / 2 + HG
+              : d.x - (d.data.__couple ? W + CI / 2 : W / 2) - W / 2 - HG
+            moved = true; break
+          }
+        }
+        if (!moved) for (const [, e] of extra) {
+          if (!e.data || Math.abs(e.y - y) > H * 0.4) continue
+          if (Math.abs(e.x - x) < W + HG) {
+            x = dir > 0 ? e.x + W + HG : e.x - W - HG
+            moved = true; break
+          }
+        }
+      }
+      return x
+    }
 
     marriages.forEach(m => {
       const s1 = String(m.spouse1_id), s2 = String(m.spouse2_id)
       const coupleId = `couple_${mKey(s1, s2)}`
-
-      // Couple-node handles both spouses — nothing to do
       if (d3Pos.has(coupleId)) return
 
       const d1 = d3Pos.get(s1), d2 = d3Pos.get(s2)
 
       if (d1 && !d2 && !extra.has(s2)) {
-        // s2 absent from D3 tree → place to the right of s1
-        extra.set(s2, { x: d1.x + W + CI, y: d1.y, data: nodeMap.get(s2) })
+        extra.set(s2, { x: clearX(d1.x + W + CI, d1.y, 1), y: d1.y, data: nodeMap.get(s2) })
         skipInTree.add(s2)
       } else if (!d1 && d2 && !extra.has(s1)) {
-        // s1 absent from D3 tree → place to the left of s2
-        extra.set(s1, { x: d2.x - W - CI, y: d2.y, data: nodeMap.get(s1) })
+        extra.set(s1, { x: clearX(d2.x - W - CI, d2.y, -1), y: d2.y, data: nodeMap.get(s1) })
         skipInTree.add(s1)
       } else if (d1 && d2 && Math.abs(d1.y - d2.y) > H * 0.5) {
-        // Both in tree but at very different depths — move the shallower-or-equal spouse
-        // next to their partner. movedParents (computed below) will reposition any real
-        // parent of the moved person directly above their new slot.
         if (d1.depth >= d2.depth) {
-          extra.set(s2, { x: d1.x + W + CI, y: d1.y, data: d2.data })
+          extra.set(s2, { x: clearX(d1.x + W + CI, d1.y, 1), y: d1.y, data: d2.data })
           skipInTree.add(s2)
         } else {
-          extra.set(s1, { x: d2.x - W - CI, y: d2.y, data: d1.data })
+          extra.set(s1, { x: clearX(d2.x - W - CI, d2.y, -1), y: d2.y, data: d1.data })
           skipInTree.add(s1)
         }
       }
@@ -355,6 +440,31 @@ export default function FamilyTreeClassic({ data }) {
       if (movedParents.has(id)) { const mp = movedParents.get(id); return { x: mp.x, y: mp.y } }
       const n = d3Pos.get(id); return n ? { x: n.x, y: n.y } : null
     }
+
+    // ── In-law subtree relocation ─────────────────────────────────────────────
+    // When a top-level D3 subtree has a child who was moved to extra (e.g. Fatma
+    // placed next to Fahmi), shift the ENTIRE subtree so it sits one generation
+    // above that extra child — keeping in-laws visually near their child instead
+    // of stranded at the far top of the tree.
+    // We modify D3 node .x/.y directly so all subsequent rendering is automatic.
+    root.each(par => {
+      const parId = String(par.data.id)
+      if (par.data.__virtual && !par.data.__couple) return
+      if (skipInTree.has(parId)) return
+      // Only top-level nodes (direct children of the virtual root or the lone root)
+      const isTopLevel = !par.parent || (par.parent.data.__virtual && !par.parent.data.__couple)
+      if (!isTopLevel) return
+      // Find children that were moved to an extra slot
+      const extraKids = (par.children || []).filter(c => extra.has(String(c.data.id)))
+      if (!extraKids.length) return
+      const ep = extra.get(String(extraKids[0].data.id))
+      const dx = ep.x - par.x
+      const dy = (ep.y - H - VG) - par.y
+      if (Math.abs(dy) < H && Math.abs(dx) < W) return  // already close enough
+      par.each(node => {
+        if (!skipInTree.has(String(node.data.id))) { node.x += dx; node.y += dy }
+      })
+    })
 
     // ── Center the tree ───────────────────────────────────────────────────────
     let minX = Infinity, maxX = -Infinity
@@ -395,9 +505,20 @@ export default function FamilyTreeClassic({ data }) {
 
     root.each(par => {
       if (!par.children?.length || (par.data.__virtual && !par.data.__couple)) return
-      // Exclude children repositioned via extra or movedParents (avoid dangling lines)
+      if (skipInTree.has(String(par.data.id))) return  // couple was moved to movedParents
       const vis = par.children.filter(c => !skipInTree.has(String(c.data.id)))
       drawElbow(par.x, par.y, vis)
+      // Dashed path to children moved to an extra slot (e.g. Fatma when siblings keep parent in tree)
+      par.children.forEach(c => {
+        const cid = String(c.data.id)
+        if (!skipInTree.has(cid) || !extra.has(cid)) return
+        const ep = extra.get(cid)
+        const midY = (par.y + ep.y) / 2
+        lG.append('path')
+          .attr('d', `M${par.x},${par.y + H / 2} L${par.x},${midY} L${ep.x},${midY} L${ep.x},${ep.y - H / 2}`)
+          .attr('stroke', '#3d4460').attr('stroke-width', 1.5)
+          .attr('stroke-dasharray', '5,3').attr('fill', 'none')
+      })
     })
 
     // Links from moved parents (e.g. Hedi) down to their extra-placed children (e.g. Fatma)
@@ -419,9 +540,8 @@ export default function FamilyTreeClassic({ data }) {
       const coupleId = `couple_${mKey(s1, s2)}`
 
       if (d3Pos.has(coupleId)) {
-        // ♥ between the two spouse cards (the CI gap)
-        const cx = d3Pos.get(coupleId).x, cy = d3Pos.get(coupleId).y
-        drawMarriageLine(mG, cx - CI / 2, cy, cx + CI / 2, cy)
+        const dPos = movedParents.has(coupleId) ? movedParents.get(coupleId) : d3Pos.get(coupleId)
+        drawMarriageLine(mG, dPos.x - CI / 2, dPos.y, dPos.x + CI / 2, dPos.y)
       } else {
         // Extra-placed spouse — positions are now at the same y level
         const p1 = getPos(s1), p2 = getPos(s2)
@@ -440,7 +560,7 @@ export default function FamilyTreeClassic({ data }) {
       if (d.data.__virtual && !d.data.__couple) return
 
       if (d.data.__couple) {
-        // Two cards side by side
+        if (skipInTree.has(String(d.data.id))) return  // repositioned via movedParents
         const cx = d.x, cy = d.y
         if (d.data.__s1data) renderCard(nG, cx - W / 2 - CI / 2, cy, d.data.__s1data, navigate, defs)
         if (d.data.__s2data) renderCard(nG, cx + W / 2 + CI / 2, cy, d.data.__s2data, navigate, defs)

@@ -18,15 +18,78 @@ export default function FamilyTree({ data }) {
     d3.select(el).selectAll('*').remove()
 
     const svg = d3.select(el).attr('width', width).attr('height', height)
+    // ── Animated particle background ──────────────────────────────────────────
+    svg.append('rect').attr('width', '100%').attr('height', '100%')
+      .attr('fill', 'var(--bg)').attr('pointer-events', 'none')
     const bgDefs = svg.append('defs')
     bgDefs.append('pattern').attr('id', 'dot-bg-f').attr('width', 32).attr('height', 32)
       .attr('patternUnits', 'userSpaceOnUse')
-      .append('circle').attr('cx', 16).attr('cy', 16).attr('r', 1.1)
-      .attr('fill', 'rgba(139,145,167,0.13)')
-    svg.append('rect').attr('width', '100%').attr('height', '100%')
-      .attr('fill', 'var(--bg)').attr('pointer-events', 'none')
+      .append('circle').attr('cx', 16).attr('cy', 16).attr('r', 0.9)
+      .attr('fill', 'rgba(139,145,167,0.08)')
     svg.append('rect').attr('width', '100%').attr('height', '100%')
       .attr('fill', 'url(#dot-bg-f)').attr('pointer-events', 'none')
+    const glowFf = bgDefs.append('filter').attr('id', 'sparkle-glow-f')
+      .attr('x', '-60%').attr('y', '-60%').attr('width', '220%').attr('height', '220%')
+    glowFf.append('feGaussianBlur').attr('stdDeviation', '2.5').attr('result', 'blur')
+    const glowMf = glowFf.append('feMerge')
+    glowMf.append('feMergeNode').attr('in', 'blur')
+    glowMf.append('feMergeNode').attr('in', 'SourceGraphic')
+    const bgLayerF = svg.append('g').attr('pointer-events', 'none')
+    const rndF = () => Math.random()
+    for (let i = 0; i < 60; i++) {
+      const px = rndF() * width, py = rndF() * height
+      const delay = (rndF() * 8).toFixed(2)
+      const isStar = rndF() < 0.14
+      if (isStar) {
+        const angle = Math.PI * (0.25 + rndF() * 0.7)
+        const dist  = 55 + rndF() * 90
+        const nx = (px + Math.cos(angle) * dist).toFixed(1)
+        const ny = (py + Math.sin(angle) * dist).toFixed(1)
+        const period   = (9  + rndF() * 12).toFixed(2)
+        const shootDur = (0.35 + rndF() * 0.5).toFixed(3)
+        const s0 = (rndF() * 0.75).toFixed(3)
+        const s1 = (+s0 + 0.003).toFixed(3)
+        const s2 = Math.min(+s1 + +shootDur / +period, 0.98).toFixed(3)
+        const s3 = Math.min(+s2 + 0.005, 0.99).toFixed(3)
+        const kt  = `0;${s0};${s1};${s2};${s3};1`
+        const c = bgLayerF.append('circle')
+          .attr('cx', px).attr('cy', py).attr('r', 0.9 + rndF() * 1.0)
+          .attr('fill', rndF() > 0.4 ? '#ffffff' : '#a5b4fc')
+          .attr('opacity', 0).attr('filter', 'url(#sparkle-glow-f)')
+        c.append('animate').attr('attributeName', 'opacity')
+          .attr('values', `0;0;0.95;0;0;0`).attr('keyTimes', kt)
+          .attr('dur', `${period}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cx')
+          .attr('values', `${px};${px};${px};${nx};${nx};${px}`).attr('keyTimes', kt)
+          .attr('dur', `${period}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cy')
+          .attr('values', `${py};${py};${py};${ny};${ny};${py}`).attr('keyTimes', kt)
+          .attr('dur', `${period}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+      } else {
+        const r      = 0.6 + rndF() * 1.5
+        const bright = rndF() > 0.6
+        const oLow   = bright ? 0.15 : 0.03
+        const oHigh  = bright ? 0.92 : 0.30
+        const oDur   = (2.0 + rndF() * 4.5).toFixed(2)
+        const mDur   = (10  + rndF() * 12).toFixed(2)
+        const dx = ((rndF() - 0.5) * 26).toFixed(1)
+        const dy = ((rndF() - 0.5) * 26).toFixed(1)
+        const fill   = bright ? (rndF() > 0.5 ? '#818cf8' : '#67e8f9') : 'rgba(139,145,167,0.85)'
+        const c = bgLayerF.append('circle')
+          .attr('cx', px).attr('cy', py).attr('r', r)
+          .attr('fill', fill).attr('opacity', oLow)
+        if (bright) c.attr('filter', 'url(#sparkle-glow-f)')
+        c.append('animate').attr('attributeName', 'opacity')
+          .attr('values', `${oLow};${oHigh};${oLow}`)
+          .attr('dur', `${oDur}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cx')
+          .attr('values', `${px};${(+px + +dx).toFixed(1)};${px}`)
+          .attr('dur', `${mDur}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+        c.append('animate').attr('attributeName', 'cy')
+          .attr('values', `${py};${(+py + +dy).toFixed(1)};${py}`)
+          .attr('dur', `${mDur}s`).attr('begin', `${delay}s`).attr('repeatCount', 'indefinite')
+      }
+    }
 
     const g = svg.append('g')
 

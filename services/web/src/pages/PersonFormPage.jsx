@@ -10,6 +10,7 @@ export default function PersonFormPage() {
   const [initial, setInitial] = useState(null)
   const [loading, setLoading] = useState(false)
   const [photoFile, setPhotoFile] = useState(null)
+  const [suggestions, setSuggestions] = useState({ lastNames: [], birthPlaces: [] })
 
   useEffect(() => {
     if (isEdit) {
@@ -18,6 +19,16 @@ export default function PersonFormPage() {
       setInitial({})
     }
   }, [id, isEdit])
+
+  useEffect(() => {
+    api.list().then(r => {
+      const ps = r.data
+      setSuggestions({
+        lastNames:   [...new Set(ps.map(p => p.last_name).filter(Boolean))].sort(),
+        birthPlaces: [...new Set(ps.map(p => p.birth_place).filter(Boolean))].sort(),
+      })
+    })
+  }, [])
 
   const handleSubmit = async (data) => {
     setLoading(true)
@@ -59,7 +70,7 @@ export default function PersonFormPage() {
         <hr className="divider" />
         {initial === null
           ? <div className="spinner">Chargement...</div>
-          : <PersonForm key={id || 'new'} initial={initial} onSubmit={handleSubmit} loading={loading} />
+          : <PersonForm key={id || 'new'} initial={initial} onSubmit={handleSubmit} loading={loading} suggestions={suggestions} />
         }
       </div>
     </div>
